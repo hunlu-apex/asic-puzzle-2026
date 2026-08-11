@@ -16,6 +16,15 @@ module tb_success;
     localparam [120:0] SECOND_FAILURE_INPUT =
         121'b1101011000010011110000000001000001000011000011101110000100001100001001011000000101110000110011100000000010000000000100000;
 
+    // One representative input recovered for each distinct output trace.
+    // SUCCESS_INPUT above is also the recovered (* TWO STARS *) input.
+    localparam [120:0] TRY_AGAIN_INPUT =
+        121'b1111111111111110111111000011010101111110000111000000000010010000000000000000100010000000100111101000000100100100000111001;
+    localparam [120:0] EMPTY_SKY_INPUT = {121{1'b0}};
+    localparam [120:0] BIG_BANG_INPUT = {121{1'b1}};
+    localparam [120:0] TWO_NOT_TOUCH_INPUT =
+        121'b0101000000000000010100000000010100010100000010000100000000000100010000010000101100000000000000001100001100000010000001000;
+
     integer mismatches;
 
     puzzle dut (
@@ -28,47 +37,6 @@ module tb_success;
     );
 
     always #5000 clk = ~clk;
-
-    function automatic [7:0] expected_output(
-        input expected_success,
-        input integer index
-    );
-        begin
-            if (expected_success) begin
-                case (index)
-                     0: expected_output = "(";
-                     1: expected_output = "*";
-                     2: expected_output = " ";
-                     3: expected_output = "T";
-                     4: expected_output = "W";
-                     5: expected_output = "O";
-                     6: expected_output = " ";
-                     7: expected_output = "S";
-                     8: expected_output = "T";
-                     9: expected_output = "A";
-                    10: expected_output = "R";
-                    11: expected_output = "S";
-                    12: expected_output = " ";
-                    13: expected_output = "*";
-                    14: expected_output = ")";
-                    default: expected_output = 8'h00;
-                endcase
-            end else begin
-                case (index)
-                    0: expected_output = "T";
-                    1: expected_output = "R";
-                    2: expected_output = "Y";
-                    3: expected_output = " ";
-                    4: expected_output = "A";
-                    5: expected_output = "G";
-                    6: expected_output = "A";
-                    7: expected_output = "I";
-                    8: expected_output = "N";
-                    default: expected_output = 8'h00;
-                endcase
-            end
-        end
-    endfunction
 
     task automatic reset_dut;
         begin
@@ -83,6 +51,7 @@ module tb_success;
 
     task automatic run_case(
         input [120:0] bits,
+        input [8*15-1:0] expected_message,
         input expected_success,
         input integer output_length,
         input integer case_number
@@ -90,6 +59,7 @@ module tb_success;
         integer bit_index;
         integer output_index;
         integer initial_mismatches;
+        reg [7:0] expected_byte;
         begin
             initial_mismatches = mismatches;
             reset_dut();
@@ -114,11 +84,13 @@ module tb_success;
                     @(posedge clk);
                     #1;
                 end
+                expected_byte = expected_message[
+                    8*(output_length-output_index)-1 -: 8
+                ];
                 $write("%c", O);
-                if (O !== expected_output(expected_success, output_index)) begin
+                if (O !== expected_byte) begin
                     $display("\nMISMATCH case=%0d output_index=%0d O=%02h expected=%02h",
-                             case_number, output_index, O,
-                             expected_output(expected_success, output_index));
+                             case_number, output_index, O, expected_byte);
                     mismatches = mismatches + 1;
                 end
                 if (success !== expected_success) begin
@@ -144,7 +116,7 @@ module tb_success;
     endtask
 
     initial begin
-        $dumpfile("success_outputs.vcd");
+        $dumpfile("all_outputs.vcd");
         $dumpvars(1, tb_success);
 
         clk = 1'b0;
@@ -153,13 +125,21 @@ module tb_success;
         I = 1'b0;
         mismatches = 0;
 
-        run_case(FIRST_FAILURE_INPUT,  1'b0,  9, 1);
-        run_case(SUCCESS_INPUT,        1'b1, 15, 2);
-        run_case(SECOND_FAILURE_INPUT, 1'b0,  9, 3);
+        // Preserve the original failure -> success -> failure regression.
+        run_case(FIRST_FAILURE_INPUT,  "TRY AGAIN",       1'b0,  9, 1);
+        run_case(SUCCESS_INPUT,        "(* TWO STARS *)", 1'b1, 15, 2);
+        run_case(SECOND_FAILURE_INPUT, "TRY AGAIN",       1'b0,  9, 3);
+
+        // Exercise the remaining representatives from the exhaustive search.
+        // SUCCESS_INPUT above already covers the fifth distinct trace.
+        run_case(TRY_AGAIN_INPUT,      "TRY AGAIN",       1'b0,  9, 4);
+        run_case(EMPTY_SKY_INPUT,      "EMPTY SKY",       1'b0,  9, 5);
+        run_case(BIG_BANG_INPUT,       "BIG BANG",        1'b0,  8, 6);
+        run_case(TWO_NOT_TOUCH_INPUT,  "TWO NOT TOUCH",   1'b0, 13, 7);
 
         if (mismatches != 0)
             $fatal(1, "FAIL: %0d mismatches", mismatches);
-        $display("PASS: failure -> success -> failure regression completed");
+        $display("PASS: all 7 cases completed in one testbench run");
         $finish;
     end
 endmodule

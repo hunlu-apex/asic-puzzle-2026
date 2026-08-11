@@ -1,0 +1,4 @@
+VCD info: dumpfile /home/hunlu/apexcompute/asic-puzzle-2026/output_search_results/model_1.sim.vcd opened for output.
+TRACE_HEX=54525920414741494e0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+SUCCESS=0
+/home/hunlu/apexcompute/asic-puzzle-2026/tb_output_candidate.sv:68: $finish called at 1985001 (1ps)
